@@ -21591,73 +21591,72 @@
 
 			    
 			            async init() {
-        if ('serviceWorker' in navigator) {
-            try {
-                const swCode = `
-                    self.addEventListener('install', (e) => { self.skipWaiting(); });
-                    self.addEventListener('activate', (e) => { e.waitUntil(self.clients.claim()); });
-                    self.addEventListener('notificationclick', (e) => {
-                        e.notification.close();
-                        const contactId = e.notification.data ? e.notification.data.contactId : '';
-                        e.waitUntil(
-                            self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-                                for (const client of clientList) {
-                                    if ('focus' in client) {
-                                        client.postMessage({ action: 'navigate_chat', contactId: contactId });
-                                        return client.focus();
-                                    }
-                                }
-                                if (self.clients.openWindow) return self.clients.openWindow('./');
-                            })
-                        );
-                    });
-                `;
-                const blob = new Blob([swCode], { type: 'application/javascript' });
-                const swUrl = URL.createObjectURL(blob);
-                this.swRegistration = await navigator.serviceWorker.register(swUrl).catch(() => null);
-                if (this.swRegistration) {
-                    navigator.serviceWorker.addEventListener('message', (e) => {
-                        if (e.data && e.data.action === 'navigate_chat' && e.data.contactId) {
-                            openChat(e.data.contactId);
-                        }
-                    });
-                }
-            } catch (err) {
-                this.swRegistration = null;
-            }
-        }
-
+    if ('serviceWorker' in navigator) {
         try {
-            const workerCode = `
-                let timers = {};
-                self.onmessage = function(e) {
-                    if (e.data.action === 'start') {
-                        if (timers[e.data.contactId]) clearTimeout(timers[e.data.contactId]);
-                        timers[e.data.contactId] = setTimeout(() => {
-                            self.postMessage({ action: 'trigger', contactId: e.data.contactId });
-                            delete timers[e.data.contactId];
-                        }, e.data.delay);
-                    } else if (e.data.action === 'stop') {
-                        if (timers[e.data.contactId]) {
-                            clearTimeout(timers[e.data.contactId]);
-                            delete timers[e.data.contactId];
-                        }
-                    }
-                };
+            const swCode = `
+                self.addEventListener('install', (e) => { self.skipWaiting(); });
+                self.addEventListener('activate', (e) => { e.waitUntil(self.clients.claim()); });
+                self.addEventListener('notificationclick', (e) => {
+                    e.notification.close();
+                    const contactId = e.notification.data ? e.notification.data.contactId : '';
+                    e.waitUntil(
+                        self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+                            for (const client of clientList) {
+                                if ('focus' in client) {
+                                    client.postMessage({ action: 'navigate_chat', contactId: contactId });
+                                    return client.focus();
+                                }
+                            }
+                            if (self.clients.openWindow) return self.clients.openWindow('./');
+                        })
+                    );
+                });
             `;
-            const blob = new Blob([workerCode], { type: 'application/javascript' });
-            this.worker = new Worker(URL.createObjectURL(blob));
-            this.worker.onmessage = (e) => {
-                if (e.data.action === 'trigger') {
-                    this.executeBgAction(e.data.contactId);
+            const blob = new Blob([swCode], { type: 'application/javascript' });
+            const swUrl = URL.createObjectURL(blob);
+            this.swRegistration = await navigator.serviceWorker.register(swUrl).catch(() => null);
+            if (this.swRegistration) {
+                navigator.serviceWorker.addEventListener('message', (e) => {
+                    if (e.data && e.data.action === 'navigate_chat' && e.data.contactId) {
+                        openChat(e.data.contactId);
+                    }
+                });
+            }
+        } catch (err) {
+            this.swRegistration = null;
+        }
+    }
+
+    try {
+        const workerCode = `
+            let timers = {};
+            self.onmessage = function(e) {
+                if (e.data.action === 'start') {
+                    if (timers[e.data.contactId]) clearTimeout(timers[e.data.contactId]);
+                    timers[e.data.contactId] = setTimeout(() => {
+                        self.postMessage({ action: 'trigger', contactId: e.data.contactId });
+                        delete timers[e.data.contactId];
+                    }, e.data.delay);
+                } else if (e.data.action === 'stop') {
+                    if (timers[e.data.contactId]) {
+                        clearTimeout(timers[e.data.contactId]);
+                        delete timers[e.data.contactId];
+                    }
                 }
             };
-        } catch (err) {
-            this.worker = null;
-        }
+        `;
+        const blob = new Blob([workerCode], { type: 'application/javascript' });
+        this.worker = new Worker(URL.createObjectURL(blob));
+        this.worker.onmessage = (e) => {
+            if (e.data.action === 'trigger') {
+                this.executeBgAction(e.data.contactId);
+            }
+        };
+    } catch (err) {
+        this.worker = null;
+    }
 
-        document.addEventListener('visibilitychange', () => {
-
+    document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
             this.checkRetroactiveMessages();
         } else {
@@ -21667,6 +21666,7 @@
         }
     });
 },
+
 
 
 			        // 扩展 Service Worker 用于监听并处理通知点击唤醒网页
